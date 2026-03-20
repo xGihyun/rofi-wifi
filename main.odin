@@ -1,7 +1,7 @@
 package main
 
 import "core:fmt"
-import "core:os/os2"
+import "core:os"
 import "core:strconv"
 import "core:strings"
 
@@ -15,11 +15,11 @@ main :: proc() {
 
 	allocator := context.allocator
 
-	wifi_list_desc := os2.Process_Desc {
+	wifi_list_desc := os.Process_Desc {
 		command = {"nmcli", "-t", "-f", "SSID,SECURITY,BARS", "dev", "wifi", "list"},
 	}
 
-	state, stdout, stderr, err := os2.process_exec(wifi_list_desc, allocator)
+	state, stdout, stderr, err := os.process_exec(wifi_list_desc, allocator)
 	if err != nil {
 		notify("Failed to fetch list of WiFi connections.")
 		return
@@ -66,29 +66,29 @@ main :: proc() {
 		strings.write_byte(&rofi_input, '\n')
 	}
 
-	r_in, w_in, pipe_err := os2.pipe()
+	r_in, w_in, pipe_err := os.pipe()
 	if pipe_err != nil {
 		notify("Failed to create pipe.")
 		return
 	}
 
-	_, write_err := os2.write(w_in, rofi_input.buf[:])
+	_, write_err := os.write(w_in, rofi_input.buf[:])
 	if write_err != nil {
 		notify("Failed to write list.")
 		return
 	}
-	os2.close(w_in)
+	os.close(w_in)
 
-	rofi_desc := os2.Process_Desc {
+	rofi_desc := os.Process_Desc {
 		command = {"rofi", "-dmenu", "-i", "-p", "Wi-Fi", "-format", "i"},
 		stdin   = r_in,
 	}
-	rofi_state, rofi_stdout, _, rofi_err := os2.process_exec(rofi_desc, allocator)
+	rofi_state, rofi_stdout, _, rofi_err := os.process_exec(rofi_desc, allocator)
 	if rofi_err != nil {
 		notify("Failed to execute rofi.")
 		return
 	}
-	os2.close(r_in)
+	os.close(r_in)
 
 	idx_str := strings.trim_space(string(rofi_stdout))
 	idx, idx_ok := strconv.parse_int(idx_str)
@@ -97,10 +97,10 @@ main :: proc() {
 	}
 
 	selected := networks[idx]
-	conn_show_desc := os2.Process_Desc {
+	conn_show_desc := os.Process_Desc {
 		command = {"nmcli", "-t", "-f", "NAME", "connection", "show"},
 	}
-	show_state, show_stdout, _, show_err := os2.process_exec(conn_show_desc, allocator)
+	show_state, show_stdout, _, show_err := os.process_exec(conn_show_desc, allocator)
 	if show_err != nil {
 		notify("Failed to get saved connections.")
 		return
@@ -116,10 +116,10 @@ main :: proc() {
 	}
 
 	if known {
-		connect_desc := os2.Process_Desc {
+		connect_desc := os.Process_Desc {
 			command = {"nmcli", "connection", "up", "id", selected.ssid},
 		}
-		_, _, _, err = os2.process_exec(connect_desc, context.temp_allocator)
+		_, _, _, err = os.process_exec(connect_desc, context.temp_allocator)
 		if err != nil {
 			notify("Failed to connect.")
 		}
@@ -128,45 +128,45 @@ main :: proc() {
 
 	sec := strings.trim_space(selected.security)
 	if sec == "" || sec == "--" || strings.contains(strings.to_upper(sec), "OPEN") {
-		connect_desc := os2.Process_Desc {
+		connect_desc := os.Process_Desc {
 			command = {"nmcli", "dev", "wifi", "connect", selected.ssid},
 		}
-		_, _, _, err = os2.process_exec(connect_desc, context.temp_allocator)
+		_, _, _, err = os.process_exec(connect_desc, context.temp_allocator)
 		if err != nil {
 			notify("Failed to connect.")
 		}
 		return
 	}
 
-	r_pass_in, w_pass_in, pass_pipe_err := os2.pipe()
+	r_pass_in, w_pass_in, pass_pipe_err := os.pipe()
 	if pass_pipe_err != nil {
 		notify("Failed to create pipe.")
 		return
 	}
-	os2.close(w_pass_in)
+	os.close(w_pass_in)
 
 	pass_prompt := fmt.tprintf("Password for %s", selected.ssid)
-	pass_desc := os2.Process_Desc {
+	pass_desc := os.Process_Desc {
 		command = {"rofi", "-dmenu", "-p", pass_prompt, "-password"},
 		stdin   = r_pass_in,
 	}
 
-	pass_state, pass_stdout, _, pass_rofi_err := os2.process_exec(pass_desc, allocator)
+	pass_state, pass_stdout, _, pass_rofi_err := os.process_exec(pass_desc, allocator)
 	if pass_rofi_err != nil {
 		notify("Failed to execute rofi password prompt.")
 		return
 	}
-	os2.close(r_pass_in)
+	os.close(r_pass_in)
 
 	password := strings.trim_space(string(pass_stdout))
 	if len(password) == 0 {
 		return
 	}
 
-	connect_desc := os2.Process_Desc {
+	connect_desc := os.Process_Desc {
 		command = {"nmcli", "dev", "wifi", "connect", selected.ssid, "password", password},
 	}
-	_, _, _, err = os2.process_exec(connect_desc, context.temp_allocator)
+	_, _, _, err = os.process_exec(connect_desc, context.temp_allocator)
 	if err != nil {
 		notify(fmt.tprint("Failed to connect to:", selected.ssid))
 		return
@@ -174,11 +174,11 @@ main :: proc() {
 }
 
 notify :: proc(arg: string) {
-	notify_desc := os2.Process_Desc {
+	notify_desc := os.Process_Desc {
 		command = {"notify-send", arg},
 	}
 
-	state, stdout, stderr, err := os2.process_exec(notify_desc, context.allocator)
+	state, stdout, stderr, err := os.process_exec(notify_desc, context.allocator)
 	if err != nil {
 		fmt.eprintln("Failed to run notify-send:", string(stderr))
 		return
