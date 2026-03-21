@@ -8,6 +8,7 @@ import "core:strings"
 Network :: struct {
 	ssid:     string,
 	security: string,
+	bars:     string,
 }
 
 main :: proc() {
@@ -62,6 +63,8 @@ main :: proc() {
 
 	rofi_input := strings.builder_make(allocator)
 	for net in networks {
+		strings.write_string(&rofi_input, net.bars)
+		strings.write_byte(&rofi_input, ' ')
 		strings.write_string(&rofi_input, net.ssid)
 		strings.write_byte(&rofi_input, '\n')
 	}
@@ -213,6 +216,7 @@ parse_nmcli_line :: proc(line: string) -> (Network, bool) {
 	net := Network {
 		ssid     = parts[0],
 		security = parts[1],
+		bars     = parts[2],
 	}
 	return net, true
 }
