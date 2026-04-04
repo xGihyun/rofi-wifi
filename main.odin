@@ -6,6 +6,7 @@ import "core:strconv"
 import "core:strings"
 
 Network :: struct {
+	in_use:   bool,
 	ssid:     string,
 	security: string,
 	bars:     string,
@@ -17,7 +18,7 @@ main :: proc() {
 	allocator := context.allocator
 
 	wifi_list_desc := os.Process_Desc {
-		command = {"nmcli", "-t", "-f", "SSID,SECURITY,BARS", "dev", "wifi", "list"},
+		command = {"nmcli", "-t", "-f", "IN-USE,SSID,SECURITY,BARS", "dev", "wifi", "list"},
 	}
 
 	state, stdout, stderr, err := os.process_exec(wifi_list_desc, allocator)
@@ -63,6 +64,12 @@ main :: proc() {
 
 	rofi_input := strings.builder_make(allocator)
 	for net in networks {
+		if net.in_use {
+			strings.write_string(&rofi_input, "*")
+		} else {
+			strings.write_string(&rofi_input, " ")
+		}
+		strings.write_byte(&rofi_input, ' ')
 		strings.write_string(&rofi_input, net.bars)
 		strings.write_byte(&rofi_input, ' ')
 		strings.write_string(&rofi_input, net.ssid)
@@ -214,9 +221,10 @@ parse_nmcli_line :: proc(line: string) -> (Network, bool) {
 	}
 
 	net := Network {
-		ssid     = parts[0],
-		security = parts[1],
-		bars     = parts[2],
+		in_use   = parts[0] == "*",
+		ssid     = parts[1],
+		security = parts[2],
+		bars     = parts[3],
 	}
 	return net, true
 }
